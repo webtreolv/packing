@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Estación Paking para lectura de etiquetas">
+    <title>Paking | Estación de etiquetas</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js" defer></script>
+    <script src="app.js" defer></script>
+</head>
+<body>
+    <main class="app-shell">
+        <header class="app-header">
+            <div>
+                <p class="eyebrow">ESTACIÓN DE EMPAQUE</p>
+                <h1>Packing</h1>
+            </div>
+            <span id="scanner-badge" class="status-badge"><span class="status-dot"></span> LISTO</span>
+        </header>
+
+        <section class="workstation-card">
+            <div class="section-heading">
+                <div>
+                    <p class="eyebrow">FLUJO DE ESCANEO USB</p>
+                    <h2>Escanea para generar la etiqueta</h2>
+                    <p class="muted">El lector USB funciona como teclado. La etiqueta se crea automáticamente al leer el QR.</p>
+                </div>
+                <button id="reset-flow" class="button button-light" type="button">Reiniciar</button>
+            </div>
+
+            <div class="steps single-step">
+                <div id="base-step" class="step step-active">
+                    <span class="step-number">1</span>
+                    <div>
+                        <strong>Etiqueta base válida</strong>
+                        <small>Escanea el QR de la etiqueta base</small>
+                    </div>
+                    <span id="base-state" class="step-state">PENDIENTE</span>
+                </div>
+            </div>
+
+            <form id="scanner-form" class="scanner-form">
+                <label for="scanner-input">Entrada del escáner USB</label>
+                <div class="input-row">
+                    <input id="scanner-input" type="text" autocomplete="off" spellcheck="false"
+                        placeholder="Listo para escanear..." aria-describedby="scanner-status" autofocus>
+                    <button class="button button-primary" type="submit">Aceptar lectura</button>
+                </div>
+                <p id="scanner-status" class="scanner-status" role="status">
+                    Listo para escanear.
+                </p>
+            </form>
+        </section>
+
+        <section class="reference-grid">
+            <article class="reference-card generated-card">
+                <div class="section-heading">
+                    <div>
+                        <p class="eyebrow">RESULTADO</p>
+                        <h2>Etiqueta generada</h2>
+                    </div>
+                </div>
+                <div class="result-preview">
+                    <span id="result-empty">Aún no hay resultado</span>
+                    <div id="result-label-preview" class="label-preview is-hidden">
+                        <strong id="result-code-preview">---</strong>
+                        <svg id="result-barcode-preview" aria-label="Código de barras generado"></svg>
+                    </div>
+                </div>
+            </article>
+        </section>
+
+        <section id="result-card" class="result-card is-hidden">
+            <div class="section-heading">
+                <div>
+                    <p class="eyebrow">ETIQUETA LISTA</p>
+                    <h2 id="result-code">---</h2>
+                    <p id="result-detail" class="muted"></p>
+                </div>
+                <div class="result-actions">
+                    <button id="save-label" class="button button-primary" type="button" disabled>Guardar etiqueta</button>
+                    <button id="print-label" class="button button-secondary" type="button">Imprimir etiqueta</button>
+                </div>
+            </div>
+            <div class="print-label" id="print-label-content">
+                <strong id="print-code">---</strong>
+                <svg id="print-barcode" aria-label="Código de barras para impresión"></svg>
+            </div>
+        </section>
+
+        <section class="history-card">
+            <div class="section-heading">
+                <div>
+                    <p class="eyebrow">ETIQUETAS GENERADAS</p>
+                    <h2>Listado de etiquetas</h2>
+                </div>
+                <button id="clear-history" class="text-button" type="button">Limpiar listado</button>
+            </div>
+            <div id="history-list" class="history-list">
+                <p class="empty-state">Todavía no hay lecturas registradas.</p>
+            </div>
+        </section>
+    </main>
+</body>
+</html>
