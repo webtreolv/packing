@@ -39,8 +39,7 @@
     }
 
     function extractTenDigits(value) {
-        const digits = String(value).replace(/\D/g, '');
-        if (digits.length >= 10) return digits.slice(0, 10);
+        // Tomamos estricamente los primeros 10 caracteres alfanuméricos de la lectura
         return String(value).replace(/[^A-Za-z0-9]/g, '').slice(0, 10);
     }
 
