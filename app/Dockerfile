@@ -1,5 +1,7 @@
 FROM php:8.3-apache
 
+EXPOSE 80
+
 # Habilitar mod_rewrite (por si acaso se usa en un futuro)
 RUN a2enmod rewrite
 
