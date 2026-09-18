@@ -45,7 +45,10 @@
     }
 
     function normalizeScan(value) {
-        return String(value || '').replace(/[\r\n]+/g, '').trim();
+        let val = String(value || '').replace(/[\r\n]+/g, '').trim();
+        val = val.replace(/ñ/gi, ' ');
+        val = val.replace(/'/g, '-');
+        return val;
     }
 
     function extractTenDigits(value) {
