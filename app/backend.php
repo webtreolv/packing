@@ -1,4 +1,5 @@
 <?php
+date_default_timezone_set('America/Mexico_City');
 header('Content-Type: application/json');
 
 // La base de datos SQLite se creará en esta misma carpeta
@@ -17,8 +18,12 @@ $action = $_GET['action'] ?? '';
 
 if ($action === 'save') {
     $data = json_decode(file_get_contents('php://input'), true);
-    $stmt = $db->prepare("INSERT INTO labels (full_code, formatted_code) VALUES (:full, :formatted)");
-    $stmt->execute([':full' => $data['full_code'], ':formatted' => $data['formatted_code']]);
+    $stmt = $db->prepare("INSERT INTO labels (full_code, formatted_code, created_at) VALUES (:full, :formatted, :created_at)");
+    $stmt->execute([
+        ':full' => $data['full_code'], 
+        ':formatted' => $data['formatted_code'],
+        ':created_at' => date('Y-m-d H:i:s')
+    ]);
     echo json_encode(['success' => true]);
 } elseif ($action === 'list') {
     $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
