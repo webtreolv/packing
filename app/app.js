@@ -336,8 +336,11 @@
     });
 
     filterDate.addEventListener('change', function () {
-        currentPage = 1;
-        loadHistory(currentPage);
+        historyList.innerHTML = '<p class="empty-state">Buscando etiquetas, por favor espera...</p>';
+        window.setTimeout(function () {
+            currentPage = 1;
+            loadHistory(currentPage);
+        }, 400);
     });
 
     prevPageBtn.addEventListener('click', function () {
@@ -361,38 +364,47 @@
         }
         
         try {
-            const data = getLocalDB();
+            let data = getLocalDB();
+            
+            // Filter by date
+            const dateVal = filterDate.value;
+            if (dateVal) {
+                data = data.filter(item => item.created_at.startsWith(dateVal));
+            }
+            
             if (!data || !data.length) {
-                window.alert('No hay etiquetas para exportar.');
+                window.alert('No hay etiquetas en la fecha seleccionada para exportar.');
                 return;
             }
             
-            // Generate CSV
-            const headers = ['ID', 'Codigo Completo', 'Codigo Formateado', 'Fecha de Creacion'];
-            const rows = data.map(item => [
-                item.id,
-                `"${item.full_code}"`,
-                `"${item.formatted_code}"`,
-                `"${item.created_at}"`
-            ]);
+            if (typeof XLSX === 'undefined') {
+                window.alert('La libreria de Excel no se pudo cargar. Revisa la conexion a Internet.');
+                return;
+            }
             
-            const csvContent = [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
-            const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
-            const url = URL.createObjectURL(blob);
+            // Generate Excel
+            const worksheetData = data.map(item => ({
+                'ID': item.id,
+                'Código Completo': item.full_code,
+                'Código Formateado': item.formatted_code,
+                'Fecha de Creación': item.created_at
+            }));
             
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'Etiquetas_Paking.csv';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
+            const worksheet = XLSX.utils.json_to_sheet(worksheetData);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Etiquetas");
+            
+            XLSX.writeFile(workbook, "Etiquetas_Paking.xlsx");
             
         } catch (error) {
             console.error(error);
-            window.alert('Error exportando las etiquetas.');
+            window.alert('Error exportando las etiquetas a Excel.');
         }
     });
+
+    // Init date filter
+    const now = new Date();
+    filterDate.value = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
 
     loadHistory(1);
     resetFlow();
