@@ -58,43 +58,16 @@
         return normalized.slice(0, 3) + '-' + normalized.slice(3, 7) + '-' + normalized.slice(7, 10);
     }
 
-    const LOCAL_DB_KEY = 'paking_sqlite_emulator';
-    const ITEMS_PER_PAGE = 5;
-
-    // Emulate SQLite Database locally
-    function getLocalDB() {
-        try {
-            return JSON.parse(localStorage.getItem(LOCAL_DB_KEY) || '[]');
-        } catch {
-            return [];
-        }
-    }
-
-    function saveLocalDB(data) {
-        localStorage.setItem(LOCAL_DB_KEY, JSON.stringify(data));
-    }
-
-    function loadHistory(page = 1) {
+    async function loadHistory(page = 1) {
         try {
             const dateVal = filterDate.value;
-            let data = getLocalDB();
+            const res = await fetch(`backend.php?action=list&page=${page}&date=${dateVal}`);
+            const json = await res.json();
             
-            // Filter by date
-            if (dateVal) {
-                data = data.filter(item => item.created_at.startsWith(dateVal));
-            }
+            currentPage = json.page;
+            totalPages = json.pages;
             
-            // Sort DESC
-            data.sort((a, b) => b.id - a.id);
-            
-            const total = data.length;
-            const totalPages = Math.ceil(total / ITEMS_PER_PAGE) || 1;
-            currentPage = page > totalPages ? totalPages : (page < 1 ? 1 : page);
-            
-            const offset = (currentPage - 1) * ITEMS_PER_PAGE;
-            const paginatedData = data.slice(offset, offset + ITEMS_PER_PAGE);
-            
-            renderHistory(paginatedData);
+            renderHistory(json.data);
             
             if (totalPages > 1) {
                 paginationControls.style.display = 'flex';
@@ -106,32 +79,17 @@
             }
         } catch (error) {
             console.error(error);
-            historyList.innerHTML = '<p class="empty-state">Error cargando lecturas.</p>';
+            historyList.innerHTML = '<p class="empty-state">Error cargando lecturas. Verifica el servidor.</p>';
         }
     }
 
-    function addHistory(fullCode, formattedCode) {
+    async function addHistory(fullCode, formattedCode) {
         try {
-            const db = getLocalDB();
-            const newId = db.length > 0 ? Math.max(...db.map(i => i.id)) + 1 : 1;
-            
-            // Generate local timestamp like SQLite datetime('now', 'localtime')
-            const now = new Date();
-            const localDateTime = now.getFullYear() + '-' + 
-                                  String(now.getMonth() + 1).padStart(2, '0') + '-' + 
-                                  String(now.getDate()).padStart(2, '0') + ' ' + 
-                                  String(now.getHours()).padStart(2, '0') + ':' + 
-                                  String(now.getMinutes()).padStart(2, '0') + ':' + 
-                                  String(now.getSeconds()).padStart(2, '0');
-
-            db.push({
-                id: newId,
-                full_code: fullCode,
-                formatted_code: formattedCode,
-                created_at: localDateTime
+            await fetch('backend.php?action=save', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ full_code: fullCode, formatted_code: formattedCode })
             });
-            saveLocalDB(db);
-            
             currentPage = 1;
             loadHistory(currentPage);
         } catch (error) {
@@ -191,7 +149,7 @@
         });
     }
 
-    function deleteHistoryItem(id) {
+    async function deleteHistoryItem(id) {
         const password = window.prompt('Ingresa la contraseña para eliminar esta etiqueta:');
         if (password === null) return;
         if (password !== DELETE_PASSWORD) {
@@ -199,9 +157,11 @@
             return;
         }
         try {
-            let db = getLocalDB();
-            db = db.filter(item => item.id !== id);
-            saveLocalDB(db);
+            await fetch('backend.php?action=delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: id })
+            });
             loadHistory(currentPage);
         } catch (error) {
             window.alert('Error eliminando la etiqueta.');
@@ -318,7 +278,7 @@
         window.print();
     });
     
-    document.getElementById('clear-history').addEventListener('click', function () {
+    document.getElementById('clear-history').addEventListener('click', async function () {
         const password = window.prompt('Ingresa la contraseña para limpiar el listado:');
         if (password === null) return;
         if (password !== DELETE_PASSWORD) {
@@ -326,7 +286,7 @@
             return;
         }
         try {
-            saveLocalDB([]);
+            await fetch('backend.php?action=clear', { method: 'POST' });
             currentPage = 1;
             loadHistory(currentPage);
             setStatus('Listado limpiado correctamente.', 'success');
@@ -364,10 +324,12 @@
         }
         
         try {
-            let data = getLocalDB();
+            const dateVal = filterDate.value;
+            const res = await fetch(`backend.php?action=all`);
+            const json = await res.json();
+            let data = json.data;
             
             // Filter by date
-            const dateVal = filterDate.value;
             if (dateVal) {
                 data = data.filter(item => item.created_at.startsWith(dateVal));
             }
@@ -381,6 +343,7 @@
                 window.alert('La libreria de ExcelJS no se pudo cargar. Revisa la conexion a Internet.');
                 return;
             }
+
             
             // Generar Excel con imagenes usando ExcelJS
             const workbook = new ExcelJS.Workbook();
