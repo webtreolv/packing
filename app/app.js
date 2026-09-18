@@ -322,6 +322,8 @@
         
         try {
             const res = await fetch('backend.php?action=all');
+            if (!res.ok) throw new Error('Error en el servidor');
+            
             const json = await res.json();
             const data = json.data;
             if (!data || !data.length) {
@@ -329,22 +331,30 @@
                 return;
             }
             
-            // Format for Excel
-            const worksheetData = data.map(row => ({
-                'ID': row.id,
-                'Código Completo': row.full_code,
-                'Código Formateado': row.formatted_code,
-                'Fecha de Creación': row.created_at
-            }));
+            // Generate CSV
+            const headers = ['ID', 'Codigo Completo', 'Codigo Formateado', 'Fecha de Creacion'];
+            const rows = data.map(item => [
+                item.id,
+                `"${item.full_code}"`,
+                `"${item.formatted_code}"`,
+                `"${item.created_at}"`
+            ]);
             
-            const worksheet = XLSX.utils.json_to_sheet(worksheetData);
-            const workbook = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(workbook, worksheet, "Etiquetas");
+            const csvContent = [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+            const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
             
-            XLSX.writeFile(workbook, "Etiquetas_Paking.xlsx");
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'Etiquetas_Paking.csv';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
             
         } catch (error) {
-            window.alert('Error exportando las etiquetas.');
+            console.error(error);
+            window.alert('Error exportando las etiquetas. Verifica que el servidor (PHP) esté funcionando correctamente.');
         }
     });
 
