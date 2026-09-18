@@ -1,7 +1,6 @@
 (function () {
     'use strict';
 
-    const HISTORY_KEY = 'paking-label-history';
     // Cambia esta contraseña cuando la aplicación pase a producción.
     const DELETE_PASSWORD = 'Danfoss2026-';
     const scannerForm = document.getElementById('scanner-form');
@@ -20,9 +19,20 @@
     const saveLabelButton = document.getElementById('save-label');
     const printLabelButton = document.getElementById('print-label');
     const historyList = document.getElementById('history-list');
+    
+    // Pagination & Filter Elements
+    const filterDate = document.getElementById('filter-date');
+    const exportExcelButton = document.getElementById('export-excel');
+    const prevPageBtn = document.getElementById('prev-page');
+    const nextPageBtn = document.getElementById('next-page');
+    const pageInfo = document.getElementById('page-info');
+    const paginationControls = document.getElementById('pagination-controls');
+
     let currentBaseScan = '';
     let currentResult = '';
     let scanTimer = null;
+    let currentPage = 1;
+    let totalPages = 1;
 
     function setStatus(message, type) {
         scannerStatus.textContent = message;
@@ -39,7 +49,6 @@
     }
 
     function extractTenDigits(value) {
-        // Tomamos estricamente los primeros 10 caracteres alfanuméricos de la lectura
         return String(value).replace(/[^A-Za-z0-9]/g, '').slice(0, 10);
     }
 
@@ -49,23 +58,44 @@
         return normalized.slice(0, 3) + '-' + normalized.slice(3, 7) + '-' + normalized.slice(7, 10);
     }
 
-    function getHistory() {
+    async function loadHistory(page = 1) {
         try {
-            const history = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
-            return Array.isArray(history) ? history : [];
+            const dateVal = filterDate.value;
+            const res = await fetch(`backend.php?action=list&page=${page}&date=${dateVal}`);
+            const json = await res.json();
+            
+            currentPage = json.page;
+            totalPages = json.pages;
+            
+            renderHistory(json.data);
+            
+            if (totalPages > 1) {
+                paginationControls.style.display = 'flex';
+                pageInfo.textContent = `Página ${currentPage} de ${totalPages}`;
+                prevPageBtn.disabled = currentPage <= 1;
+                nextPageBtn.disabled = currentPage >= totalPages;
+            } else {
+                paginationControls.style.display = 'none';
+            }
         } catch (error) {
-            return [];
+            console.error(error);
+            historyList.innerHTML = '<p class="empty-state">Error cargando lecturas.</p>';
         }
     }
 
-    function addHistory(result) {
-        const history = getHistory();
-        history.unshift({
-            result: result,
-            scannedAt: new Date().toISOString()
-        });
-        localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0, 30)));
-        renderHistory();
+    async function addHistory(fullCode, formattedCode) {
+        try {
+            await fetch('backend.php?action=save', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ full_code: fullCode, formatted_code: formattedCode })
+            });
+            currentPage = 1;
+            loadHistory(currentPage);
+        } catch (error) {
+            console.error(error);
+            window.alert('Error guardando la etiqueta.');
+        }
     }
 
     function formatDate(value) {
@@ -81,28 +111,28 @@
         });
     }
 
-    function renderHistory() {
-        const history = getHistory();
-        if (!history.length) {
-            historyList.innerHTML = '<p class="empty-state">Todavía no hay lecturas registradas.</p>';
+    function renderHistory(historyArray) {
+        if (!historyArray || !historyArray.length) {
+            historyList.innerHTML = '<p class="empty-state">Todavía no hay lecturas registradas para esta vista.</p>';
             return;
         }
-        historyList.innerHTML = history.map(function (item, index) {
-            const barcodeId = 'history-barcode-' + index;
+        historyList.innerHTML = historyArray.map(function (item) {
+            const barcodeId = 'history-barcode-' + item.id;
             window.setTimeout(function () {
-                renderBarcode(barcodeId, item.result);
+                renderBarcode(barcodeId, item.formatted_code);
             }, 0);
             return '<article class="history-item">' +
                 '<div class="history-label">' +
-                '<strong>' + escapeHtml(item.result) + '</strong>' +
-                '<svg id="' + barcodeId + '" aria-label="Código de barras ' + escapeHtml(item.result) + '"></svg>' +
+                '<div style="margin-bottom: 5px; font-size: 0.85rem; color: #666;">Completa: ' + escapeHtml(item.full_code) + '</div>' +
+                '<strong>' + escapeHtml(item.formatted_code) + '</strong>' +
+                '<svg id="' + barcodeId + '" aria-label="Código de barras ' + escapeHtml(item.formatted_code) + '"></svg>' +
                 '</div>' +
                 '<div class="history-actions">' +
-                '<span class="history-time">' + escapeHtml(formatDate(item.scannedAt)) + '</span>' +
+                '<span class="history-time">' + escapeHtml(formatDate(item.created_at)) + '</span>' +
                 '<button class="button button-small print-history" type="button" data-code="' +
-                escapeHtml(item.result) + '">Imprimir</button>' +
-                '<button class="button button-small delete-history" type="button" data-index="' +
-                index + '">Eliminar</button>' +
+                escapeHtml(item.formatted_code) + '">Imprimir</button>' +
+                '<button class="button button-small delete-history" type="button" data-id="' +
+                item.id + '">Eliminar</button>' +
                 '</div>' +
                 '</article>';
         }).join('');
@@ -114,23 +144,28 @@
         });
         historyList.querySelectorAll('.delete-history').forEach(function (button) {
             button.addEventListener('click', function () {
-                deleteHistoryItem(Number(button.dataset.index));
+                deleteHistoryItem(Number(button.dataset.id));
             });
         });
     }
 
-    function deleteHistoryItem(index) {
+    async function deleteHistoryItem(id) {
         const password = window.prompt('Ingresa la contraseña para eliminar esta etiqueta:');
         if (password === null) return;
         if (password !== DELETE_PASSWORD) {
             window.alert('Contraseña incorrecta. La etiqueta no se eliminó.');
             return;
         }
-        const history = getHistory();
-        if (!history[index]) return;
-        history.splice(index, 1);
-        localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
-        renderHistory();
+        try {
+            await fetch('backend.php?action=delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: id })
+            });
+            loadHistory(currentPage);
+        } catch (error) {
+            window.alert('Error eliminando la etiqueta.');
+        }
     }
 
     function renderBarcode(elementId, value) {
@@ -202,7 +237,9 @@
             baseStep.classList.remove('step-active');
             baseStep.classList.add('step-done');
             if (showResult()) {
-                currentBaseScan = '';
+                // Etiqueta procesada
+                const result = formatLabelCode(currentBaseScan);
+                //currentBaseScan = '';
                 baseState.textContent = 'LISTA';
                 baseStep.classList.remove('step-done');
                 baseStep.classList.add('step-active');
@@ -227,27 +264,90 @@
     });
 
     document.getElementById('reset-flow').addEventListener('click', resetFlow);
+    
     saveLabelButton.addEventListener('click', function () {
-        if (!currentResult) return;
-        addHistory(currentResult);
+        if (!currentResult || !currentBaseScan) return;
+        addHistory(currentBaseScan, currentResult);
         saveLabelButton.disabled = true;
+        // resetear currentBaseScan despues de guardar
+        currentBaseScan = '';
         setStatus('Etiqueta guardada en el listado.', 'success');
     });
+    
     printLabelButton.addEventListener('click', function () {
         window.print();
     });
-    document.getElementById('clear-history').addEventListener('click', function () {
+    
+    document.getElementById('clear-history').addEventListener('click', async function () {
         const password = window.prompt('Ingresa la contraseña para limpiar el listado:');
         if (password === null) return;
         if (password !== DELETE_PASSWORD) {
             window.alert('Contraseña incorrecta. El listado no se limpió.');
             return;
         }
-        localStorage.removeItem(HISTORY_KEY);
-        renderHistory();
-        setStatus('Listado limpiado correctamente.', 'success');
+        try {
+            await fetch('backend.php?action=clear', { method: 'POST' });
+            currentPage = 1;
+            loadHistory(currentPage);
+            setStatus('Listado limpiado correctamente.', 'success');
+        } catch (error) {
+            window.alert('Error limpiando el listado.');
+        }
     });
 
-    renderHistory();
+    filterDate.addEventListener('change', function () {
+        currentPage = 1;
+        loadHistory(currentPage);
+    });
+
+    prevPageBtn.addEventListener('click', function () {
+        if (currentPage > 1) {
+            loadHistory(currentPage - 1);
+        }
+    });
+
+    nextPageBtn.addEventListener('click', function () {
+        if (currentPage < totalPages) {
+            loadHistory(currentPage + 1);
+        }
+    });
+
+    exportExcelButton.addEventListener('click', async function () {
+        const password = window.prompt('Ingresa la contraseña para exportar las etiquetas:');
+        if (password === null) return;
+        if (password !== DELETE_PASSWORD) {
+            window.alert('Contraseña incorrecta. No se puede exportar.');
+            return;
+        }
+        
+        try {
+            const res = await fetch('backend.php?action=all');
+            const json = await res.json();
+            const data = json.data;
+            if (!data || !data.length) {
+                window.alert('No hay etiquetas para exportar.');
+                return;
+            }
+            
+            // Format for Excel
+            const worksheetData = data.map(row => ({
+                'ID': row.id,
+                'Código Completo': row.full_code,
+                'Código Formateado': row.formatted_code,
+                'Fecha de Creación': row.created_at
+            }));
+            
+            const worksheet = XLSX.utils.json_to_sheet(worksheetData);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Etiquetas");
+            
+            XLSX.writeFile(workbook, "Etiquetas_Paking.xlsx");
+            
+        } catch (error) {
+            window.alert('Error exportando las etiquetas.');
+        }
+    });
+
+    loadHistory(1);
     resetFlow();
 }());

@@ -7,6 +7,7 @@
     <title>Paking | Estación de etiquetas</title>
     <link rel="stylesheet" href="styles.css">
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js" defer></script>
     <script src="app.js" defer></script>
 </head>
 <body>
@@ -97,8 +98,20 @@
                 </div>
                 <button id="clear-history" class="text-button" type="button">Limpiar listado</button>
             </div>
+            
+            <div id="history-filters" style="display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap;">
+                <input type="date" id="filter-date" style="padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;" title="Buscar por fecha">
+                <button id="export-excel" class="button button-secondary" type="button" style="padding: 0.5rem 1rem;">Exportar Excel</button>
+            </div>
+
             <div id="history-list" class="history-list">
                 <p class="empty-state">Todavía no hay lecturas registradas.</p>
+            </div>
+            
+            <div class="pagination-controls" id="pagination-controls" style="display: none; justify-content: space-between; align-items: center; margin-top: 15px;">
+                <button id="prev-page" class="button button-light" style="padding: 0.5rem 1rem;">Anterior</button>
+                <span id="page-info" style="font-size: 0.9rem; color: #666;">Página 1</span>
+                <button id="next-page" class="button button-light" style="padding: 0.5rem 1rem;">Siguiente</button>
             </div>
         </section>
     </main>
