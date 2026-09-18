@@ -58,16 +58,44 @@
         return normalized.slice(0, 3) + '-' + normalized.slice(3, 7) + '-' + normalized.slice(7, 10);
     }
 
-    async function loadHistory(page = 1) {
+    const LOCAL_DB_KEY = 'paking_sqlite_emulator';
+    let currentPage = 1;
+    const ITEMS_PER_PAGE = 5;
+
+    // Emulate SQLite Database locally
+    function getLocalDB() {
+        try {
+            return JSON.parse(localStorage.getItem(LOCAL_DB_KEY) || '[]');
+        } catch {
+            return [];
+        }
+    }
+
+    function saveLocalDB(data) {
+        localStorage.setItem(LOCAL_DB_KEY, JSON.stringify(data));
+    }
+
+    function loadHistory(page = 1) {
         try {
             const dateVal = filterDate.value;
-            const res = await fetch(`backend.php?action=list&page=${page}&date=${dateVal}`);
-            const json = await res.json();
+            let data = getLocalDB();
             
-            currentPage = json.page;
-            totalPages = json.pages;
+            // Filter by date
+            if (dateVal) {
+                data = data.filter(item => item.created_at.startsWith(dateVal));
+            }
             
-            renderHistory(json.data);
+            // Sort DESC
+            data.sort((a, b) => b.id - a.id);
+            
+            const total = data.length;
+            const totalPages = Math.ceil(total / ITEMS_PER_PAGE) || 1;
+            currentPage = page > totalPages ? totalPages : (page < 1 ? 1 : page);
+            
+            const offset = (currentPage - 1) * ITEMS_PER_PAGE;
+            const paginatedData = data.slice(offset, offset + ITEMS_PER_PAGE);
+            
+            renderHistory(paginatedData);
             
             if (totalPages > 1) {
                 paginationControls.style.display = 'flex';
@@ -83,13 +111,28 @@
         }
     }
 
-    async function addHistory(fullCode, formattedCode) {
+    function addHistory(fullCode, formattedCode) {
         try {
-            await fetch('backend.php?action=save', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ full_code: fullCode, formatted_code: formattedCode })
+            const db = getLocalDB();
+            const newId = db.length > 0 ? Math.max(...db.map(i => i.id)) + 1 : 1;
+            
+            // Generate local timestamp like SQLite datetime('now', 'localtime')
+            const now = new Date();
+            const localDateTime = now.getFullYear() + '-' + 
+                                  String(now.getMonth() + 1).padStart(2, '0') + '-' + 
+                                  String(now.getDate()).padStart(2, '0') + ' ' + 
+                                  String(now.getHours()).padStart(2, '0') + ':' + 
+                                  String(now.getMinutes()).padStart(2, '0') + ':' + 
+                                  String(now.getSeconds()).padStart(2, '0');
+
+            db.push({
+                id: newId,
+                full_code: fullCode,
+                formatted_code: formattedCode,
+                created_at: localDateTime
             });
+            saveLocalDB(db);
+            
             currentPage = 1;
             loadHistory(currentPage);
         } catch (error) {
@@ -102,7 +145,7 @@
         return new Intl.DateTimeFormat('es-MX', {
             dateStyle: 'short',
             timeStyle: 'short'
-        }).format(new Date(value));
+        }).format(new Date(value.replace(' ', 'T')));
     }
 
     function escapeHtml(value) {
@@ -149,7 +192,7 @@
         });
     }
 
-    async function deleteHistoryItem(id) {
+    function deleteHistoryItem(id) {
         const password = window.prompt('Ingresa la contraseña para eliminar esta etiqueta:');
         if (password === null) return;
         if (password !== DELETE_PASSWORD) {
@@ -157,11 +200,9 @@
             return;
         }
         try {
-            await fetch('backend.php?action=delete', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: id })
-            });
+            let db = getLocalDB();
+            db = db.filter(item => item.id !== id);
+            saveLocalDB(db);
             loadHistory(currentPage);
         } catch (error) {
             window.alert('Error eliminando la etiqueta.');
@@ -278,7 +319,7 @@
         window.print();
     });
     
-    document.getElementById('clear-history').addEventListener('click', async function () {
+    document.getElementById('clear-history').addEventListener('click', function () {
         const password = window.prompt('Ingresa la contraseña para limpiar el listado:');
         if (password === null) return;
         if (password !== DELETE_PASSWORD) {
@@ -286,7 +327,7 @@
             return;
         }
         try {
-            await fetch('backend.php?action=clear', { method: 'POST' });
+            saveLocalDB([]);
             currentPage = 1;
             loadHistory(currentPage);
             setStatus('Listado limpiado correctamente.', 'success');
@@ -312,7 +353,7 @@
         }
     });
 
-    exportExcelButton.addEventListener('click', async function () {
+    exportExcelButton.addEventListener('click', function () {
         const password = window.prompt('Ingresa la contraseña para exportar las etiquetas:');
         if (password === null) return;
         if (password !== DELETE_PASSWORD) {
@@ -321,11 +362,7 @@
         }
         
         try {
-            const res = await fetch('backend.php?action=all');
-            if (!res.ok) throw new Error('Error en el servidor');
-            
-            const json = await res.json();
-            const data = json.data;
+            const data = getLocalDB();
             if (!data || !data.length) {
                 window.alert('No hay etiquetas para exportar.');
                 return;
@@ -354,7 +391,7 @@
             
         } catch (error) {
             console.error(error);
-            window.alert('Error exportando las etiquetas. Verifica que el servidor (PHP) esté funcionando correctamente.');
+            window.alert('Error exportando las etiquetas.');
         }
     });
 
