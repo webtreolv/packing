@@ -59,7 +59,6 @@
     }
 
     const LOCAL_DB_KEY = 'paking_sqlite_emulator';
-    let currentPage = 1;
     const ITEMS_PER_PAGE = 5;
 
     // Emulate SQLite Database locally
