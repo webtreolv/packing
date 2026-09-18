@@ -355,7 +355,7 @@
         }
     });
 
-    exportExcelButton.addEventListener('click', function () {
+    exportExcelButton.addEventListener('click', async function () {
         const password = window.prompt('Ingresa la contraseña para exportar las etiquetas:');
         if (password === null) return;
         if (password !== DELETE_PASSWORD) {
@@ -377,24 +377,72 @@
                 return;
             }
             
-            if (typeof XLSX === 'undefined') {
-                window.alert('La libreria de Excel no se pudo cargar. Revisa la conexion a Internet.');
+            if (typeof ExcelJS === 'undefined') {
+                window.alert('La libreria de ExcelJS no se pudo cargar. Revisa la conexion a Internet.');
                 return;
             }
             
-            // Generate Excel
-            const worksheetData = data.map(item => ({
-                'ID': item.id,
-                'Código Completo': item.full_code,
-                'Código Formateado': item.formatted_code,
-                'Fecha de Creación': item.created_at
-            }));
+            // Generar Excel con imagenes usando ExcelJS
+            const workbook = new ExcelJS.Workbook();
+            const worksheet = workbook.addWorksheet('Etiquetas');
             
-            const worksheet = XLSX.utils.json_to_sheet(worksheetData);
-            const workbook = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(workbook, worksheet, "Etiquetas");
+            worksheet.columns = [
+                { header: 'ID', key: 'id', width: 10 },
+                { header: 'Código Completo', key: 'full_code', width: 25 },
+                { header: 'Código Formateado', key: 'formatted_code', width: 25 },
+                { header: 'Fecha de Creación', key: 'created_at', width: 25 },
+                { header: 'Código de Barras', key: 'barcode', width: 40 }
+            ];
             
-            XLSX.writeFile(workbook, "Etiquetas_Paking.xlsx");
+            data.forEach((item, index) => {
+                const rowIndex = index + 2; // header is at row 1
+                worksheet.addRow({
+                    id: item.id,
+                    full_code: item.full_code,
+                    formatted_code: item.formatted_code,
+                    created_at: item.created_at
+                });
+                
+                // Hacer la fila más alta para que quepa la imagen
+                worksheet.getRow(rowIndex).height = 60;
+                
+                // Generar codigo de barras en un canvas oculto
+                const canvas = document.createElement('canvas');
+                JsBarcode(canvas, item.formatted_code, {
+                    format: 'CODE128',
+                    displayValue: false,
+                    height: 50,
+                    width: 2,
+                    margin: 0,
+                    background: '#ffffff',
+                    lineColor: '#111111'
+                });
+                
+                // Agregar imagen al libro
+                const base64Image = canvas.toDataURL('image/png');
+                const imageId = workbook.addImage({
+                    base64: base64Image,
+                    extension: 'png',
+                });
+                
+                // Insertar imagen en la celda
+                worksheet.addImage(imageId, {
+                    tl: { col: 4, row: rowIndex - 1 }, // Columna 4 (0-index, entonces es la 5ta), Fila actual - 1 (0-index)
+                    ext: { width: 150, height: 50 }
+                });
+            });
+            
+            const buffer = await workbook.xlsx.writeBuffer();
+            const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'Etiquetas_Paking.xlsx';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
             
         } catch (error) {
             console.error(error);
