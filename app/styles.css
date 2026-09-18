@@ -73,7 +73,7 @@ input:focus { border-color: var(--red); box-shadow: 0 0 0 .2rem rgba(180,35,47,.
 .result-card { border-color: #e0a0a4; background: linear-gradient(135deg, #fff8f8, #fde9e9); }
 .result-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .6rem; }
 .result-card h2 { margin-bottom: .35rem; }
-.print-label { display: grid; place-items: center; width: 8cm; height: 2cm; padding: .12cm .2cm; border: 1px solid #ddd; background: #fff; }
+.print-label { display: none; }
 .print-label strong { font-size: 15pt; line-height: 1; letter-spacing: .06em; }
 .print-label svg { width: 7.5cm; height: 1cm; }
 .text-button { border: 0; padding: .3rem; color: var(--red); background: transparent; font-weight: 700; }
@@ -104,7 +104,7 @@ input:focus { border-color: var(--red); box-shadow: 0 0 0 .2rem rgba(180,35,47,.
 @media print {
     @page { size: 8cm 2cm; margin: 0; }
     body { background: #fff; }
-    body * { visibility: hidden; }
-    .print-label, .print-label * { visibility: visible; }
-    .print-label { position: absolute; top: 0; left: 0; border: 0; }
+    body > :not(.print-label) { display: none !important; }
+    .print-label, .print-label * { display: grid !important; visibility: visible !important; }
+    .print-label { position: absolute; top: 0; left: 0; border: 0; place-items: center; width: 8cm; height: 2cm; padding: .12cm .2cm; background: #fff; }
 }

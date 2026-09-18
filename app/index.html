@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description" content="Estación Paking para lectura de etiquetas">
     <title>Paking | Estación de etiquetas</title>
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles.css?v=2">
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js" defer></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js" defer></script>
-    <script src="app.js?v=5" defer></script>
+    <script src="app.js?v=6" defer></script>
 </head>
 <body>
     <main class="app-shell">
@@ -84,10 +84,6 @@
                     <button id="print-label" class="button button-secondary" type="button">Imprimir etiqueta</button>
                 </div>
             </div>
-            <div class="print-label" id="print-label-content">
-                <strong id="print-code">---</strong>
-                <svg id="print-barcode" aria-label="Código de barras para impresión"></svg>
-            </div>
         </section>
 
         <section class="history-card">
@@ -115,5 +111,10 @@
             </div>
         </section>
     </main>
+
+    <div class="print-label" id="print-label-content">
+        <strong id="print-code">---</strong>
+        <svg id="print-barcode" aria-label="Código de barras para impresión"></svg>
+    </div>
 </body>
 </html>
